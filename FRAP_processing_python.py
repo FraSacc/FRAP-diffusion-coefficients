@@ -3,6 +3,10 @@
 Created on Mon Feb 12 09:56:47 2024
 
 @author: sacco004
+
+The script takes sequences of FRAP images, sums fluorescence intensities over one axis and 
+calculates diffusion coefficients from the Gaussian profiles of fluorescence bleach over time.
+
 """
 
 import cv2
@@ -16,7 +20,10 @@ from scipy.optimize import curve_fit
 import time
 
 def file_finder(directory,requirement):
-    '''Searches in a directory and its subdirectories for csv files with a specific requirement in their name'''
+    '''Searches in a directory and its subdirectories for csv files with a specific requirement in their name.
+    directory: main directory with files and subdirectories
+    requirement: string required in the file name (lowercase)'''
+    
     data_files = []
     for dirpath, _, filenames in os.walk(directory):
         for filename in filenames:
@@ -25,8 +32,7 @@ def file_finder(directory,requirement):
     return data_files
 
 def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
-    """
-    Call in a loop to create terminal progress bar
+    ''' Call in a loop to create terminal progress bar
     @params:
         iteration   - Required  : current iteration (Int)
         total       - Required  : total iterations (Int)
@@ -35,8 +41,8 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
         decimals    - Optional  : positive number of decimals in percent complete (Int)
         length      - Optional  : character length of bar (Int)
         fill        - Optional  : bar fill character (Str)
-        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
-    """
+        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)'''
+        
     percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
     filledLength = int(length * iteration // total)
     bar = fill * filledLength + '-' * (length - filledLength)
@@ -45,72 +51,104 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
     if iteration == total: 
         print()
 
-def Gaussian(x,C0,R0,u,y0):
-    '''Gaussian equation to fit'''
+def profile_extractor(file):
+    '''Extract the intensity profile along the y-axis of a TIFF image. 
+    Returns the Image number (image name), intensity profile and length of the axis of the intensity profile.
+    Example of image name to use as input: FRAP2_WT_6-41um_002.tif (ExperimentName_SampleName_ImageHeight_ImageNumber'''
+                                                                    
+    name_image = file.split('\\')[-1].split('_')[3].rstrip('.tif')
     
-    return y0+C0*np.exp(-2*(x-u)**2/R0**2)
+    image = cv2.imread(file)
+    
+    # Convert the image to grayscale
+    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    
+    # Convert the grayscale image to float64
+    gray_image = np.asarray(gray_image, dtype=np.float64)
+    
+    #Calculate sum of intensities over y-axis
+    profile = gray_image.mean(1)
+        
+    #Obtain x-axis (in um) for each profile
+    x_axis_length = file.split('\\')[-1].split('_')[2].rstrip('um').split('-') #micro-m
+    x_axis_length = float(f"{x_axis_length[0]}.{x_axis_length[1]}")
+    
+    return name_image, profile, x_axis_length
+
+def Gaussian(x,C,R,u,y0):
+    '''Gaussian equation to fit
+    C: amplitude
+    R: width
+    u: centre
+    y0: offset'''
+    
+    return y0+C*np.exp(-2*(x-u)**2/R**2)
 
 def linear(x,m,c):
+    '''Linear equation to fit
+    m: gradient
+    c: offset'''
+    
     return m*x+c
 
+#Import files and set main directory
 folder_all= egui.diropenbox("Select Folder to Import TIFF Images of a stack")
 os.chdir(f'{folder_all}')
 files = file_finder(folder_all, 'frap') 
 
-#Import images from different samples
+#Obtain list of samples and plants
 samples = set([file.split('\\')[-1].rsplit('_',2)[0].rstrip('.tif') for file in files])
+plants = list(set([plant.split('_')[1]for plant in samples]))
+
+#Obtain time axis (1 min every 1 s) + (5 min every 5 s)
+time_axis=list(np.arange(1,61,1)) + list(np.arange(61,360,5))
+
+#Initialise dictionary of dictionaries containing image stacks
 stacks = {sample:{} for sample in samples}
 subtracted_stacks = {sample:{} for sample in samples}
+x_axis ={sample:[] for sample in samples}
 
+#Import images from different samples
 for sample in samples:
     for file in files:
-        if sample in file:
-            name_image = file.split('\\')[-1].split('_')[3].rstrip('.tif')
-            x_axis_length = file.split('\\')[-1].split('_')[2].rstrip('um').split('-') #micro-m
+        if sample == file.split('\\')[-1].rsplit('_',2)[0].rstrip('.tif'):
+            name_image, profile, x_axis_length = profile_extractor(file)
             
-            image = cv2.imread(file)
-            
-            # Convert the image to grayscale
-            gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            
-            # Convert the grayscale image to float64
-            gray_image = np.asarray(gray_image, dtype=np.float64)
-            
-            profile = gray_image.mean(1)
-            # Add the grayscale image to the stack
+            # Add it to the stack
             stacks[sample][name_image] = profile
-    
-    
-    x_axis_length = float(f"{x_axis_length[0]}.{x_axis_length[1]}")
-    x_axis = np.linspace(0, x_axis_length, len(profile))
-    
-    pre_bleach_images = [[stacks[sample][x] for x in stacks[sample] if int(x.split('_')[-1]) in np.arange(1,6)],]
+            
+            # Add it to the stack
+            stacks[sample][name_image] = profile
+            x_axis[sample] = np.linspace(0, x_axis_length, len(profile))
+
+
+    #Average pre-bleach images (5)
+    pre_bleach_images = [[stacks[sample][x] for x in stacks[sample] if int(x.split('_')[-1]) in np.arange(1,6)]]
     pre_bleach_images = np.concatenate(pre_bleach_images,axis=1).T
     average_pre_bleach = pre_bleach_images.mean(1)
     
+    #Delete original prebleach images (keep only the averages)
     keys_to_delete = [x for x in stacks[sample] if int(x.split('_')[-1]) in np.arange(1, 6)]
     
     for key in keys_to_delete:
         del stacks[sample][key]
 
     #Store subtracted profiles
-    
-    subtracted_stacks[sample] = pd.DataFrame({r"Distance, um": x_axis,'Mean_pre_bleach': average_pre_bleach})
+    subtracted_stacks[sample] = pd.DataFrame({r"Distance, um": x_axis[sample],'Mean_pre_bleach': average_pre_bleach})
     
     for stack_key, stack_value in stacks[sample].items():
-    
         column_suffix = int(stack_key)
         subtracted_stack = pd.DataFrame({f"PB_{column_suffix}": np.subtract(sg_filter(average_pre_bleach, 5, 3),sg_filter(stack_value, 5, 3))})
         subtracted_stacks[sample] = pd.concat([subtracted_stacks[sample],subtracted_stack],axis=1)
 
-#Calculate amplitudes of Gaussians over time
-plants = list(set([plant.split('_')[1]for plant in samples]))
-time_axis=list(np.arange(1,61,1)) + list(np.arange(61,360,5))
+#Initialise dataframes for amplitudes (C) and radii (R)
 amplitudes=pd.DataFrame(time_axis,columns=['Time, s'])
 radii=pd.DataFrame(time_axis,columns=['Time, s'])
 
+#Calculate amplitudes of Gaussians over time
 iteration = 0
 total = sum([len(subtracted_stacks[sample].columns[1:]) for sample in samples])
+
 for sample in samples:
     
     a=[]
@@ -125,11 +163,11 @@ for sample in samples:
     for stack in subtracted_stacks[sample].columns[2:]:
         
         if iteration == 0: 
-            begin = time.time() 
+            begin = time.time() #start of the countdown for progress bar
         
-        #Perform fit to Gaussian
-        p0= [1,1,0] # Initial guess of C0,R0,u,y0
-        popt, pcov = curve_fit(lambda x,C0,R0,y0: Gaussian(x,C0,R0,bleach_position[2],y0), subtracted_stacks[sample]['Distance, um'], subtracted_stacks[sample][stack], p0=p0,bounds=((0,0,-np.inf),(np.inf,np.inf,np.inf)))
+        #Perform fit to Gaussian. Used a lambda function to fix the position of the bleach (u) from the initial bleach position.
+        p0= [1,1,0] # Initial guess of C,R,u
+        popt, pcov = curve_fit(lambda x,C,R,y0: Gaussian(x,C,R,bleach_position[2],y0), subtracted_stacks[sample]['Distance, um'], subtracted_stacks[sample][stack], p0=p0,bounds=((0,0,-np.inf),(np.inf,np.inf,np.inf)))
         a.append(popt[0])
         r.append(popt[1])
     
@@ -142,6 +180,8 @@ for sample in samples:
     
         # Generate x values for the fitted curve
         x_fit = np.linspace(min(subtracted_stacks[sample]['Distance, um']), max(subtracted_stacks[sample]['Distance, um']), 1000)
+        
+        # Plot a few time points 
         # plt.plot(subtracted_stacks[sample]['Distance, um'],Gaussian(subtracted_stacks[sample]['Distance, um'],*[*popt[:2],bleach_position[2],popt[-1]]))
         # plt.scatter(subtracted_stacks[sample]['Distance, um'],subtracted_stacks[sample][stack],label = stack)
         # plt.legend()
@@ -153,7 +193,6 @@ for sample in samples:
         remaining_time = (end-begin)*(total-iteration)
         printProgressBar(iteration, total-1, prefix = 'Calculating Gaussian fitting parameters:', suffix = f'Time remaining: {remaining_time:.1f} s', length = 50)
         iteration+=1
-        
         
     amplitudes[sample]=a
     radii[sample]=r
@@ -179,8 +218,6 @@ for sample in samples:
     # fig.legend(loc=(0.75,0.75),frameon=False)
     plt.savefig(f'C&R_{sample}.svg')
     plt.show()
-    
-
 
 #Calculate and plot diffusion coefficients. Calculated over the first minute of post-bleach
 
@@ -237,11 +274,11 @@ for plant in list(set([plant.split('_')[1]for plant in samples])):
     amplitudes[f'SEM_prop_{plant}'] = SEM_prop_list
     
 #Plot mean diffusion plots
-fig, ax = plt.subplots(figsize=(4.5,3.5),layout='tight')
+fig, ax = plt.subplots(figsize=(8,3.5),layout='tight')
 ax.set_xlabel('Time, s')
 ax.set_ylabel('(C$_{0,0}$/C$_{0,t}$)$^2$')
 x=amplitudes['Time, s'][:60]
-colors=['r','grey','k']
+colors=['r','grey','k','g','cyan']
 
 for i,col in enumerate(D_coeffs.columns):
 
@@ -260,8 +297,8 @@ for i,col in enumerate(D_coeffs.columns):
     std_err = np.std(D_coeffs[col], ddof=1) / np.sqrt(np.size(D_coeffs[col]))
     normalised_error = std_err*10**-(int(formatted_mean.split('e')[1]))
     
-    ax.text(0.05,0.9-0.08*i,f"D$_{{{col}}}$={normalised_mean:.2f}±{normalised_error:.2f} 10$^{{{formatted_mean.split('e')[1]}}}$ cm$^2$ s$^{{{-1}}}$", transform=ax.transAxes)
-ax.legend(frameon=False, loc='lower right')        
+    ax.text(1.1,0.9-0.08*i,f"D$_{{{col}}}$={normalised_mean:.2f}±{normalised_error:.2f} 10$^{{{formatted_mean.split('e')[1]}}}$ cm$^2$ s$^{{{-1}}}$", transform=ax.transAxes)
+ax.legend(frameon=False,bbox_to_anchor=(1, 0.5))        
 fig.savefig('Mean diffusion plot.svg')
 plt.show()
 
