@@ -33,4 +33,10 @@ Data of each subtracted fluorescence profile was fitted to equation (2) using sc
 Based on equation (3), a plot of $(\frac{C_{(y=0,t=0)}}{C_{(y=0,t)}})^2$ over time should give a linear relationship with slope m = $\frac{8D}{R_0^2}$. Diffusion coefficients (D) can then be derived.
 * A linear equation is fitted to $(\frac{C_{(y=0,t=0)}}{C_{(y=0,t)}})^2$ over time.
 * Diffusion coefficients are calculated as $D = \frac{mR_0^2}{8}$.
-* Propagated errors are calculated as $C_{(y,t=0)}
+* Propagated errors are calculated as $(2\delta C_{0,0}/\overline{C}_{0,0})^2$
+*
+*
+* $(2\delta C_{0,t}/\overline{C}_{0,t})^2$$.
+
+
+
