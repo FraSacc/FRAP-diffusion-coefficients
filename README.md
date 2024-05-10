@@ -26,6 +26,11 @@ $$C_{(y,t=0)}=C_{(y=0,t=0)}\frac{R_0}{\sqrt{(R_0^2+Dt)}}*e^\frac{-2y^2}{R_0^2+8D
 Data of each subtracted fluorescence profile was fitted to equation (2) using scipy.optimize and parameters for amplitude (C), radius (R) and total area under the fit (A) are stored in separate DataFrames.
 * The first step involves estimating the initial guesses of the fit based on the parameters obtained after fitting the first bleach image (t=0). This ensures the algorithm doesn't struggle at later time points where the signal-to-noise ratio worsens significantly.
 * For instances where the error is larger than 20% of the parameter, the measurement is discarded and NaN is appended.
+* Plots of fitting examples (one every 5) are shown and saved.
+* Means and standard errors are calculated. Average C, R and A values are plotted and saved.
 
 ## Calculate diffusion coefficients 
-Based on equation (3), a plot of $(\frac{C_{(y=0,t=0)}}{C_{(y=0,t)}})^2$ over time should give a linear relationship with slope $\frac{8D}{R_0^2}$. Diffusion coefficients (D) can then be derived.
+Based on equation (3), a plot of $(\frac{C_{(y=0,t=0)}}{C_{(y=0,t)}})^2$ over time should give a linear relationship with slope m = $\frac{8D}{R_0^2}$. Diffusion coefficients (D) can then be derived.
+* A linear equation is fitted to $(\frac{C_{(y=0,t=0)}}{C_{(y=0,t)}})^2$ over time.
+* Diffusion coefficients are calculated as $D = \frac{mR_0^2}{8}$.
+* Propagated errors are calculated as $C_{(y,t=0)}
