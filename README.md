@@ -10,3 +10,9 @@ Steps:
 * Prebleach images are then averaged to get a smoother baseline, and subtracted to each time series image to obtain the subtracted profile. Before each calculation, profiles are smoothed with a Savitzky-Golay filter and normalised to the 98th percentile value of the fluorescence intensity signal. This step is necessary for a consistent and reliable fitting procedure in later steps.
 
 ## Gaussian fitting of subtracted fluorescence intensity profiles
+The one-dimensional diffusion equation for a single fluorophore can be expressed as such: 
+$$\frac{\partial C}{\partial t}=D\frac{\partial^2 C}{\partial t^2}$$
+Assuming an initial Gaussian profile of the bleaching region, so that:
+$$C_{(y,t=0)}=C_{(y=0,t=0)}*e^{-2y^2/R_0^2}$$
+where $R_0$ is the half-width ($\frac{1}{e^2}$) of the bleach, which is centred at $y=0$, then the solution to equation 1 becomes:
+
