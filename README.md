@@ -12,13 +12,13 @@ Steps:
 ## Gaussian fitting of subtracted fluorescence intensity profiles
 The one-dimensional diffusion equation for a single fluorophore can be expressed as such: 
 
-$$
-\begin{equation}
-\frac{\partial C}{\partial t}=D\frac{\partial^2 C}{\partial t^2} \label{e1}\tag{1}
-\end{equation}
-$$
+$$\frac{\partial C}{\partial t}=D\frac{\partial^2 C}{\partial t^2} \tag{1}$$
 
+where $C_{(y,t)}$ is the concentration of the bleached fluorophore, t is time, y is distance and D is the diffusion coefficient. \
 Assuming an initial Gaussian profile of the bleaching region, so that:
-$$C_{(y,t=0)}=C_{(y=0,t=0)}*e^{-2y^2/R_0^2}$$
+
+$$C_{(y,t=0)}=C_{(y=0,t=0)}*e^{-2y^2/R_0^2} \tag{2}$$
+
 where $R_0$ is the half-width ($\frac{1}{e^2}$) of the bleach, which is centred at $y=0$, then the solution to equation (1) becomes:
-$$C_{(y,t=0)}=C_{(y=0,t=0)}*e^{-2y^2/R_0^2}$$
+
+$$C_{(y,t=0)}=C_{(y=0,t=0)}\frac{R_0}{\sqrt{(R_0^2+Dt)}}*e^\frac{-2y^2}{R_0^2+8Dt} \tag{3}$$
