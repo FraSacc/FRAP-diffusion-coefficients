@@ -1,2 +1,12 @@
-# FRAP-diffusion-coefficients
-Extracts diffusion coefficients from confocal FRAP images 
+# Fluorescence recovery after photobleaching (FRAP) - Calculate diffusion coefficients
+The script takes sequences of FRAP images, sums fluorescence intensities over one axis and calculates diffusion coefficients from the Gaussian profiles of fluorescence bleach over time.
+
+## First step: importing and preparing data 
+Local data are stored as time-series microscopy images of FRAP experiments. Example of image name: "~\FRAP10_2WT_6-91um_001.tif", where "FRAP10" denote the biological replicate, "2WT" is the name of the sample,"6-91um" is the length of the y-axis, "001" is the image number in the time series.
+Steps:
+* User selects folder to scan for TIFF images. Subfolders are also checked.
+* The script opens the images with the 'OpenCV' library and integrates the fluorescence intensity over the y-axis. The result is an intensity profile for each image of the time series.
+* Images ('stacks') are stored in a dictionary of dictionaries of pandas DataFrames, where the first level is the sample, the second level is the biological replicate and each dataframe contains the fluorescence profile of the time series images.
+* Prebleach images are then averaged to get a smoother baseline, and subtracted to each time series image to obtain the subtracted profile. Before each calculation, profiles are smoothed with a Savitzky-Golay filter and normalised to the 98th percentile value of the fluorescence intensity signal. This step is necessary for a consistent and reliable fitting procedure in later steps.
+
+## Gaussian fitting of subtracted fluorescence intensity profiles
