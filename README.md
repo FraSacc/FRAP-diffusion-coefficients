@@ -39,8 +39,8 @@ Based on equation (3), a plot of $(\frac{C_{(y=0,t=0)}}{C_{(y=0,t)}})^2$ over ti
 ## Principal Component Analysis (PCA) alternative approach
 Since the fitting procedure relies heavily on the initial guesses and microscopy images are subject to practical issues (e.g. rotation of the sample over time, drift, focus shift, etc.), another approach was explored, relying on PCA decomposition. 
 * PCA is performed on the 125 intensity profiles of each single experiment, using the PCA module of sklearn.decomposition.
-* A scree plot is used to determine the variance explained by each principal component. Since the majority of the variance (more than 92.5%) is explained by PC1, only that is analysed further. Plotting the weighted PC1 component at different time points, shows that it reflects the decrease in the amplitude of the bleach over time. For this reason, it can be used to draw diffusion plots.
-* 
+* A scree plot is used to determine the variance explained by each principal component. Since the majority of the variance (more than 92.5%) is explained by PC1, only that is analysed further.
+* Plotting the weighted PC1 component at different time points, shows that it reflects the decrease in the amplitude of the bleach over time. For this reason, it can be used to draw diffusion plots.
 
 
 
