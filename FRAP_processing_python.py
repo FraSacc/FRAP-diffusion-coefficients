@@ -1,13 +1,3 @@
-"""
-Created on Mon Feb 12 09:56:47 2024
-
-@author: sacco004
-
-The script takes sequences of FRAP images, sums fluorescence intensities over one axis and 
-calculates diffusion coefficients from the gaussian profiles of fluorescence bleach over time.
-
-"""
-
 import cv2
 import numpy as np
 import easygui as egui
@@ -39,6 +29,22 @@ def file_finder(directory,requirement):
             if filename.lower().endswith(".tif") and (requirement in filename.lower()):
                 data_files.append(os.path.join(dirpath, filename))
     return data_files
+
+def dir_maker(directory,new_folder):
+    '''Creates a new folder in the current directory and changes path to that directory. 
+    If it already exists, just changes directory
+    Args:
+        directory: The current working directory
+        new_folder: the name of the new subfolder
+    '''
+    
+    os.chdir(f'{directory}')
+    try: 
+        os.chdir(f'{directory}\\{new_folder}')
+    except: 
+        os.mkdir(f'{directory}\\{new_folder}')
+        os.chdir(f'{directory}\\{new_folder}')
+
 
 def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
     ''' Call in a loop to create terminal progress bar
@@ -111,6 +117,12 @@ def get_stderror(coefficients,covariance):
     return error
 
 def adjust_lightness(color, amount=0.5):
+    '''
+    Args
+    ----
+    Color
+    amount (optional)
+    '''
     import matplotlib.colors as mc
     import colorsys
     try:
@@ -120,15 +132,11 @@ def adjust_lightness(color, amount=0.5):
     c = colorsys.rgb_to_hls(*mc.to_rgb(c))
     return colorsys.hls_to_rgb(c[0], max(0, min(1, amount * c[1])), c[2])
 
-#Import files and set main directory
-folder_all= egui.diropenbox("Select Folder to Import TIFF Images of a stack")
+#%% MAIN 
 
-os.chdir(f'{folder_all}')
-try: 
-    os.chdir(f'{folder_all}\\Analysis_figures')
-except: 
-    os.mkdir(f'{folder_all}\\Analysis_figures')
-    os.chdir(f'{folder_all}\\Analysis_figures')
+#Import files and set main directory + folder with figures
+folder_all= egui.diropenbox("Select Folder to Import TIFF Images of a stack")
+dir_maker(folder_all,'Analysis_figures')
     
 files = file_finder(folder_all, 'frap') 
 
@@ -209,7 +217,7 @@ for sample in samples:
         
     #Determine initial center of the bleach (PB_6, the first image after laser bleach)
     p0= [1,1,3.5,0] # Initial guess of C,R,u,y0
-    bleach_position, pcov = curve_fit(Gaussian, subtracted_stacks[sample]['Distance, um'], 
+    initial_params, pcov = curve_fit(Gaussian, subtracted_stacks[sample]['Distance, um'], 
                                       subtracted_stacks[sample]['PB_6'], p0=p0,
                                       bounds=((0,0,0,-np.inf),(np.inf,np.inf,np.inf,np.inf)))
     
@@ -226,10 +234,10 @@ for sample in samples:
                 
         #IDEA 2: Perform fit to Gaussian. Estimates and bounds a range of values for peak position based
         #on the initial bleach position.
-        p0= [1,1,bleach_position[2],0] # Initial guess of C,R,u,yo
+
         try:
             popt, pcov = curve_fit(Gaussian, subtracted_stacks[sample]['Distance, um'], subtracted_stacks[sample][stack], 
-                                   p0=p0, bounds=((0,0,bleach_position[2]-1,-np.inf),(np.inf,np.inf,bleach_position[2]+1,np.inf)))
+                                   p0=initial_params, bounds=((0,0,initial_params[2]-1,-np.inf),(np.inf,np.inf,initial_params[2]+1,np.inf)))
         except:
             popt, pcov = np.array([np.nan]*4),np.array([[np.nan]*4]*4)
             
@@ -253,11 +261,8 @@ for sample in samples:
                             max(subtracted_stacks[sample]['Distance, um']), 1000)
         
         # Plot a few time points (slows down the code)
-        try: 
-            os.chdir(f'{sample}_GaussianProfiles')
-        except: 
-            os.mkdir(f'{sample}_GaussianProfiles')
-            os.chdir(f'{sample}_GaussianProfiles')
+
+        dir_maker(sample,'_GaussianProfiles')
         
         if display_images =='Yes':
             #Plot only 1 every 5 profiles
